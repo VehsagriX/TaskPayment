@@ -17,7 +17,7 @@
 - aiohttp
 - Pydantic
 - Uvicorn
-- python-dotenv
+
 
 ## Установка
 
