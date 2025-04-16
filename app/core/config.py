@@ -19,4 +19,4 @@ class Settings(BaseSettings):
 
 settings = Settings()
 
-print(str(settings.DATABASE_WALLET_URL))
+

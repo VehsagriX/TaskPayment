@@ -8,27 +8,26 @@ from app.models.payment import PaymentStatus
 class RequestPayment(BaseModel):
     wallet_id: int
     amount: PositiveFloat
+    country: str | None = None
 
-
-
-class ResponsePayment(BaseModel):
+class ResponsePostPayment(BaseModel):
     payment_id: UUID
-    message: str
+    message:str
 
-class PaymentSchema(BaseModel):
+class ResponseGetPayment(BaseModel):
+    status: PaymentStatus
+    created_at: datetime
+
+
+
+class PaymentCreate(BaseModel):
     id: UUID
     wallet_id: int
     amount: PositiveFloat
     status: PaymentStatus
 
-class ResponseFullPayment(PaymentSchema):
-
-    created_at: datetime
 
 
 
-class FullWallet(BaseModel):
-    id: int
-    user_id: int
-    amount: int
+
 

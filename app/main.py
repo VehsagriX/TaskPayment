@@ -1,19 +1,22 @@
+import asyncio
 import uuid
 
 import uvicorn
 from contextlib import asynccontextmanager
-
+from uuid import UUID
+from aiohttp import ClientResponseError
 from fastapi import FastAPI, HTTPException
 from fastapi.params import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette import status
-from starlette.responses import JSONResponse
 
 from .models.payment import PaymentBase, Payment, PaymentStatus
 from .models.wallet import WalletBase, Wallet
 from .models.db_help import wallet_db, payment_db
-from .schemas import RequestPayment, ResponsePayment, PaymentSchema
+from .schemas import RequestPayment, ResponsePostPayment, PaymentCreate, ResponseGetPayment
+
 from .models.db_work import get_item_by_id, create_item
+from .service import get_api_country, get_api_chukc
 
 
 @asynccontextmanager
@@ -29,41 +32,43 @@ async def lifespan(app: FastAPI):
 app = FastAPI(lifespan=lifespan)
 
 
-@app.post("/payment")
+@app.post("/payment", status_code=status.HTTP_201_CREATED)
 async def root(payment: RequestPayment,
                wallet_session: AsyncSession = Depends(wallet_db.session_dependency),
-               payment_session: AsyncSession = Depends(payment_db.session_dependency)):
-    my_wallet = await get_item_by_id(session=wallet_session, item_id=payment.wallet_id, model=Wallet)
-    if my_wallet is None:
+               payment_session: AsyncSession = Depends(payment_db.session_dependency)) -> ResponsePostPayment:
+    wallet = await get_item_by_id(session=wallet_session, item_id=payment.wallet_id, model=Wallet)
+    if wallet is None:
         raise HTTPException(status_code=404, detail="Wallet not found")
-    if my_wallet.amount < payment.amount:
+    if wallet.amount < payment.amount:
         raise HTTPException(status_code=400, detail="Wallet amount too low")
+
+    wallet.amount -= payment.amount
+
     payment_id = uuid.uuid4()
-    my_payment = PaymentSchema(id=payment_id, wallet_id=my_wallet.id, amount=my_wallet.amount, status=PaymentStatus.pending)
+    my_payment = PaymentCreate(id=payment_id, wallet_id=wallet.id, amount=payment.amount,
+                               status=PaymentStatus.pending)
     try:
-
+        serv_1, serv_2 = await asyncio.gather(get_api_country(country=payment.country), get_api_chukc())
+        print(serv_1, serv_2, sep='\n')
         my_payment.status = PaymentStatus.success
-        res_payment = await create_item(session=payment_session, item_in=my_payment, model=Payment,)
-
-        return JSONResponse(
-            status_code=status.HTTP_201_CREATED,
-            content=ResponsePayment(payment_id=res_payment.id, message="success")
-        )
-
-    except Exception as e:
+        res_payment = await create_item(session=payment_session, item_in=my_payment, model=Payment)
+        await wallet_session.commit()
+        return ResponsePostPayment(payment_id=res_payment.id, message="created payment")
+    except ClientResponseError as e:
         my_payment.status = PaymentStatus.failed
         res_payment = await create_item(session=payment_session, item_in=my_payment, model=Payment)
-        return JSONResponse(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            content={"data": ResponsePayment(payment_id=res_payment.id, message="External service unavailable")}
-        )
+        await wallet_session.rollback()
+        print(e.message)
+        return ResponsePostPayment(payment_id=res_payment.id, message=e.message)
 
 
-
-
-@app.get("/hello/{name}")
-async def say_hello(name: str):
-    return {"message": f"Hello {name}"}
+@app.get("/payment/{payment_id}")
+async def get_pyment_by_id(payment_id: UUID,
+                           session: AsyncSession = Depends(payment_db.session_dependency)):
+    payment = await get_item_by_id(session=session, item_id=payment_id, model=Payment)
+    if payment is None:
+        raise HTTPException(status_code=404, detail="Payment not found")
+    return ResponseGetPayment.model_validate(payment, from_attributes=True)
 
 
 if __name__ == "__main__":
