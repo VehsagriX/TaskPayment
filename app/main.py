@@ -58,7 +58,7 @@ async def root(payment: RequestPayment,
         my_payment.status = PaymentStatus.failed
         res_payment = await create_item(session=payment_session, item_in=my_payment, model=Payment)
         await wallet_session.rollback()
-        print(e.message)
+
         return ResponsePostPayment(payment_id=res_payment.id, message=e.message)
 
 
