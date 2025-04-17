@@ -3,7 +3,7 @@ import asyncio
 import aiohttp
 
 
-async def get_api_chukc()-> None:
+async def get_api_chukc() -> None:
     url = "https://api.chucknorris.io/jokes/random"
     async with aiohttp.ClientSession() as session:
         async with session.get(url) as response:
@@ -11,7 +11,7 @@ async def get_api_chukc()-> None:
             return
 
 
-async def get_api_country(country: str)->None :
+async def get_api_country(country: str) -> None:
     url = f"https://restcountries.com/v3.1/name/{country}"
     async with aiohttp.ClientSession() as session:
         async with session.get(url) as response:
@@ -19,5 +19,3 @@ async def get_api_country(country: str)->None :
             # data = await response.json()
             # return data
             return None
-
-

@@ -1,6 +1,7 @@
 from typing import Type
 from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 
 from .wallet import Wallet
 from .payment import Payment
@@ -12,7 +13,10 @@ async def get_item_by_id(
     item_id: int | UUID,
     model: Type[Wallet | Payment],
 ) -> Wallet | None:
-    return await session.get(model, item_id)
+    result = await session.execute(
+        select(model).where(model.id == item_id).with_for_update()
+    )
+    return result.scalar_one_or_none()
 
 
 async def create_item(
