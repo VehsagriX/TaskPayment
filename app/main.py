@@ -62,10 +62,8 @@ async def root(
         status=PaymentStatus.pending,
     )
     try:
-        serv_1, serv_2 = await asyncio.gather(
-            get_api_country(country=payment.country), get_api_chukc()
-        )
-        print(serv_1, serv_2, sep="\n")
+        await asyncio.gather(get_api_country(country=payment.country), get_api_chukc())
+
         my_payment.status = PaymentStatus.success
         res_payment = await create_item(
             session=payment_session, item_in=my_payment, model=Payment
